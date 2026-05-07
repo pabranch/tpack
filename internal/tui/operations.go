@@ -3,6 +3,8 @@ package tui
 import (
 	"context"
 	"os"
+	"strings"
+	"sync"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/tmuxpack/tpack/internal/git"
@@ -69,10 +71,19 @@ func installPluginCmd(cloner git.Cloner, op pendingOp) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), CloneTimeout)
 		defer cancel()
 
+		var (
+			warnMu   sync.Mutex
+			warnings []string
+		)
 		err := git.CloneWithFallback(ctx, cloner, git.CloneOptions{
 			URL:    op.Spec,
 			Dir:    op.Path,
 			Branch: op.Branch,
+			OnWarning: func(msg string) {
+				warnMu.Lock()
+				defer warnMu.Unlock()
+				warnings = append(warnings, msg)
+			},
 		}, plug.NormalizeURL)
 
 		if err != nil {
@@ -85,7 +96,7 @@ func installPluginCmd(cloner git.Cloner, op pendingOp) tea.Cmd {
 		return pluginInstallResultMsg{
 			Name:    op.Name,
 			Success: true,
-			Message: "installed successfully",
+			Message: appendWarnings("installed successfully", warnings),
 		}
 	}
 }
@@ -102,7 +113,19 @@ func updatePluginCmd(puller git.Puller, revParser git.RevParser, logger git.Logg
 			beforeHash, _ = revParser.RevParse(ctx, op.Path)
 		}
 
-		output, err := puller.Pull(ctx, git.PullOptions{Dir: op.Path, Branch: op.Branch})
+		var (
+			warnMu   sync.Mutex
+			warnings []string
+		)
+		output, err := puller.Pull(ctx, git.PullOptions{
+			Dir:    op.Path,
+			Branch: op.Branch,
+			OnWarning: func(msg string) {
+				warnMu.Lock()
+				defer warnMu.Unlock()
+				warnings = append(warnings, msg)
+			},
+		})
 		if err != nil {
 			return pluginUpdateResultMsg{
 				Name:    op.Name,
@@ -126,7 +149,7 @@ func updatePluginCmd(puller git.Puller, revParser git.RevParser, logger git.Logg
 		return pluginUpdateResultMsg{
 			Name:      op.Name,
 			Success:   true,
-			Message:   "updated successfully",
+			Message:   appendWarnings("updated successfully", warnings),
 			Output:    output,
 			Commits:   commits,
 			Dir:       op.Path,
@@ -134,6 +157,15 @@ func updatePluginCmd(puller git.Puller, revParser git.RevParser, logger git.Logg
 			AfterRef:  afterHash,
 		}
 	}
+}
+
+// appendWarnings tacks any non-fatal warnings onto a result message so the
+// TUI's existing rendering displays them alongside the success status.
+func appendWarnings(base string, warnings []string) string {
+	if len(warnings) == 0 {
+		return base
+	}
+	return base + " (with warnings: " + strings.Join(warnings, "; ") + ")"
 }
 
 func removeDirCmd(op pendingOp, msgFactory func(name string, success bool, message string) tea.Msg) tea.Cmd {

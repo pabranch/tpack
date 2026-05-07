@@ -9,12 +9,18 @@ type CloneOptions struct {
 	Dir    string
 	Branch string
 	Depth  int // 0 means no depth limit
+	// OnWarning is called for non-fatal issues (e.g. failed submodule init).
+	// May be nil. The clone overall is still considered successful.
+	OnWarning func(message string)
 }
 
 // PullOptions configures a git pull operation.
 type PullOptions struct {
 	Dir    string
 	Branch string // Optional branch to checkout before pulling
+	// OnWarning is called for non-fatal issues (e.g. failed submodule update).
+	// May be nil. The pull overall is still considered successful.
+	OnWarning func(message string)
 }
 
 // Cloner clones git repositories.

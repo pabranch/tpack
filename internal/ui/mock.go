@@ -6,6 +6,7 @@ import "sync"
 type MockOutput struct {
 	mu       sync.Mutex
 	OkMsgs   []string
+	WarnMsgs []string
 	ErrMsgs  []string
 	EndCalls int
 	failed   bool
@@ -20,6 +21,12 @@ func (m *MockOutput) Ok(msg string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.OkMsgs = append(m.OkMsgs, msg)
+}
+
+func (m *MockOutput) Warn(msg string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.WarnMsgs = append(m.WarnMsgs, msg)
 }
 
 func (m *MockOutput) Err(msg string) {

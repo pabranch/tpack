@@ -27,6 +27,12 @@ func (t *TmuxOutput) Ok(msg string) {
 	_ = t.runner.RunShell("echo '" + shell.EscapeInSingleQuotes(msg) + "'")
 }
 
+func (t *TmuxOutput) Warn(msg string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	_ = t.runner.RunShell("echo '" + shell.EscapeInSingleQuotes(msg) + "'")
+}
+
 func (t *TmuxOutput) Err(msg string) {
 	t.failed.Store(true)
 	t.mu.Lock()

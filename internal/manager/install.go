@@ -35,6 +35,9 @@ func (m *Manager) installPlugin(ctx context.Context, p plug.Plugin) {
 		URL:    p.Spec,
 		Dir:    dir,
 		Branch: p.Branch,
+		OnWarning: func(msg string) {
+			m.output.Warn("  \"" + name + "\" warning: " + msg)
+		},
 	}, plug.NormalizeURL)
 
 	if err != nil {

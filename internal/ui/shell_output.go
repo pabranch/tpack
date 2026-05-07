@@ -38,6 +38,12 @@ func (s *ShellOutput) Ok(msg string) {
 	fmt.Fprintln(s.stdout, msg)
 }
 
+func (s *ShellOutput) Warn(msg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	fmt.Fprintln(s.stderr, msg)
+}
+
 func (s *ShellOutput) Err(msg string) {
 	s.failed.Store(true)
 	s.mu.Lock()

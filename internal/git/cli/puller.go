@@ -35,12 +35,15 @@ func (c *Puller) Pull(ctx context.Context, opts git.PullOptions) (string, error)
 		return strings.TrimSpace(string(out)), err
 	}
 
-	// git submodule update --init --recursive
+	// Submodules are best-effort: a plugin whose submodule references an
+	// unreachable commit (see issue #14) should still update. The failure
+	// is surfaced via OnWarning so callers can notify the user.
 	subCmd := exec.CommandContext(ctx, "git", "submodule", "update", "--init", "--recursive")
 	subCmd.Dir = opts.Dir
 	subCmd.Env = append(subCmd.Environ(), "GIT_TERMINAL_PROMPT=0")
-	subOut, subErr := subCmd.CombinedOutput()
+	if subOut, subErr := subCmd.CombinedOutput(); subErr != nil && opts.OnWarning != nil {
+		opts.OnWarning("submodule update failed: " + strings.TrimSpace(string(subOut)))
+	}
 
-	combined := strings.TrimSpace(string(out) + string(subOut))
-	return combined, subErr
+	return strings.TrimSpace(string(out)), nil
 }

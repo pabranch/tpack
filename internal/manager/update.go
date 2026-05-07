@@ -55,7 +55,13 @@ func (m *Manager) updateSpecific(ctx context.Context, plugins []plug.Plugin, nam
 
 func (m *Manager) updatePlugin(ctx context.Context, p plug.Plugin) {
 	dir := plug.PluginPath(p.Name, m.pluginPath)
-	output, err := m.puller.Pull(ctx, git.PullOptions{Dir: dir, Branch: p.Branch})
+	output, err := m.puller.Pull(ctx, git.PullOptions{
+		Dir:    dir,
+		Branch: p.Branch,
+		OnWarning: func(msg string) {
+			m.output.Warn("  \"" + p.Name + "\" warning: " + msg)
+		},
+	})
 
 	indented := indentOutput(output)
 	if err != nil {

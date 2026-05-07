@@ -6,6 +6,10 @@ type Output interface {
 	// Ok displays a success/informational message.
 	Ok(msg string)
 
+	// Warn displays a non-fatal warning. Unlike Err, it does not mark the
+	// output as failed.
+	Warn(msg string)
+
 	// Err displays an error message and marks the output as failed.
 	Err(msg string)
 
