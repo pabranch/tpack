@@ -18,6 +18,13 @@ import (
 	"github.com/tmuxpack/tpack/internal/tmux"
 )
 
+// Update modes for the UpdateMode config setting.
+const (
+	updateModeOff    = "off"
+	updateModePrompt = "prompt"
+	updateModeAuto   = "auto"
+)
+
 var checkUpdatesCmd = &cobra.Command{
 	Use:   "check-updates",
 	Short: "Check if any plugins have updates available",
@@ -65,7 +72,7 @@ func runCheckUpdates() int {
 
 // updateChecksEnabled reports whether the update check feature is active.
 func updateChecksEnabled(cfg *config.Config) bool {
-	if cfg.UpdateMode == "" || cfg.UpdateMode == "off" {
+	if cfg.UpdateMode == "" || cfg.UpdateMode == updateModeOff {
 		return false
 	}
 	return cfg.UpdateCheckInterval > 0
@@ -116,11 +123,11 @@ func findOutdatedPlugins(plugins []plug.Plugin, pluginPath string) []string {
 // handleOutdated acts on the list of outdated plugins based on the configured update mode.
 func handleOutdated(runner tmux.Runner, cfg *config.Config, plugins []plug.Plugin, outdated []string) int {
 	switch cfg.UpdateMode {
-	case "prompt":
+	case updateModePrompt:
 		msg := "tpack: " + strconv.Itoa(len(outdated)) + " plugin update(s) available. Press prefix+U to update."
 		_ = runner.DisplayMessage(msg)
 
-	case "auto":
+	case updateModeAuto:
 		return autoUpdatePlugins(runner, cfg, plugins, outdated)
 	}
 

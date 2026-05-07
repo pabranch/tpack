@@ -155,7 +155,7 @@ func spawnSelfUpdate(binary string) {
 
 // Returns true if update checks are configured.
 func shouldSpawnUpdateCheck(cfg *config.Config) bool {
-	return cfg.UpdateMode != "" && cfg.UpdateMode != "off" && cfg.UpdateCheckInterval > 0
+	return cfg.UpdateMode != "" && cfg.UpdateMode != updateModeOff && cfg.UpdateCheckInterval > 0
 }
 
 // Launches `tpack check-updates` as a detached background process.

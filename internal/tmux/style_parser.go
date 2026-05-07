@@ -4,6 +4,9 @@ import (
 	"strings"
 )
 
+// defaultColor is the tmux sentinel meaning "use the terminal default".
+const defaultColor = "default"
+
 // StyleAttrs holds the foreground and background colors parsed from a tmux
 // style string (e.g. "fg=#aabbcc,bg=colour123,bold").
 type StyleAttrs struct {
@@ -41,7 +44,7 @@ func ParseStyle(style string) StyleAttrs {
 //   - "default", ""  → ""         (no color)
 func NormalizeColor(tmuxColor string) string {
 	tmuxColor = strings.TrimSpace(tmuxColor)
-	if tmuxColor == "" || tmuxColor == "default" {
+	if tmuxColor == "" || tmuxColor == defaultColor {
 		return ""
 	}
 	if strings.HasPrefix(tmuxColor, "colour") { //nolint:misspell // tmux uses British spelling

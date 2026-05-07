@@ -13,7 +13,7 @@ import (
 var errSilent = errors.New("")
 
 var rootCmd = &cobra.Command{
-	Use:   "tpack",
+	Use:   binaryName,
 	Short: "A modern tmux plugin manager",
 	Long:  "tpack is a drop-in replacement for TPM (Tmux Plugin Manager).",
 
@@ -32,12 +32,12 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print tpack version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("tpack " + version)
+		fmt.Println(binaryName + " " + version)
 	},
 }
 
 func init() {
-	rootCmd.SetVersionTemplate("tpack {{.Version}}\n")
+	rootCmd.SetVersionTemplate(binaryName + " {{.Version}}\n")
 
 	rootCmd.AddCommand(
 		initCmd,
