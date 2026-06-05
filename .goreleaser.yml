@@ -40,18 +40,25 @@ release:
     owner: tmuxpack
     name: tpack
 
-brews:
+homebrew_casks:
   - name: tpack
     homepage: https://github.com/tmuxpack/tpack
     description: Tmux Plugin Manager
-    license: MIT
     dependencies:
-      - name: tmux
-      - name: git
+      - formula: tmux
+      - formula: git
     repository:
       owner: tmuxpack
       name: homebrew-tpack
       token: "{{ .Env.GORELEASER_TOKEN }}"
+    # tpack binaries are not signed/notarized, so strip the quarantine
+    # attribute on install to avoid Gatekeeper blocking the binary.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/tpack"]
+          end
 
 nfpms:
   - id: tpack
