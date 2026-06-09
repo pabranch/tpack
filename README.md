@@ -12,7 +12,7 @@
 <img width="719" height="489" alt="image" src="https://github.com/user-attachments/assets/42872613-3348-4979-b463-736895c15911" />
 
 
-> **[Full Documentation](https://tmuxpack.github.io/tpack/)**
+> **[Full Documentation](https://tmuxpack.github.io/tpack/)** - Mostly AI-generated
 
 A modern tmux plugin manager written in Go. **Drop-in replacement for
 [TPM](https://github.com/tmux-plugins/tpm)** — fully backward compatible with
