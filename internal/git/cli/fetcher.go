@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -15,6 +16,19 @@ func NewFetcher() *Fetcher {
 }
 
 func (c *Fetcher) IsOutdated(ctx context.Context, dir string) (bool, error) {
+	// symbolic-ref -q HEAD: exit 0 = on a branch, exit 1 = detached HEAD
+	// (pinned to a tag/SHA; never outdated). Any other failure (not a repo,
+	// git missing, ...) is a real error and must be surfaced, not swallowed.
+	symCmd := exec.CommandContext(ctx, "git", "symbolic-ref", "-q", "HEAD")
+	symCmd.Dir = dir
+	if err := symCmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, fmt.Errorf("git symbolic-ref in %s: %w", dir, err)
+	}
+
 	fetchCmd := exec.CommandContext(ctx, "git", "fetch")
 	fetchCmd.Dir = dir
 	fetchCmd.Env = append(fetchCmd.Environ(), "GIT_TERMINAL_PROMPT=0")

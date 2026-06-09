@@ -68,6 +68,125 @@ func TestCloner_CloneWithBranch(t *testing.T) {
 	}
 }
 
+// A tag whose name looks like a commit SHA (all hex, 7-40 chars) must still be
+// treated as a tag: cloned via `git clone -b` (honoring Depth), not via the
+// full-clone SHA fallback that ignores Depth.
+func TestCloner_CloneWithHexNamedTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping git CLI test in short mode")
+	}
+
+	bare := initBareRepo(t)
+
+	// Add a second commit so a shallow (depth 1) clone is observable, then tag
+	// the tip with a hex-looking name that matches looksLikeCommitSHA.
+	work := cloneLocal(t, bare)
+	writeFile(t, filepath.Join(work, "second.txt"), "second")
+	runGit(t, work, "add", ".")
+	runGit(t, work, "commit", "-m", "second commit")
+	runGit(t, work, "push", "origin", "HEAD")
+	runGit(t, work, "tag", "abc1234")
+	runGit(t, work, "push", "origin", "abc1234")
+
+	dst := filepath.Join(t.TempDir(), "cloned-hextag")
+	cloner := gitcli.NewCloner()
+	err := cloner.Clone(context.Background(), git.CloneOptions{
+		// file:// so git honors --depth (it is ignored for local-path clones).
+		URL:    "file://" + bare,
+		Dir:    dst,
+		Branch: "abc1234",
+		Depth:  1,
+	})
+	if err != nil {
+		t.Fatalf("Clone with hex-named tag returned error: %v", err)
+	}
+
+	// Treated as a tag → detached HEAD.
+	symCmd := exec.CommandContext(context.Background(), "git", "-C", dst, "symbolic-ref", "-q", "HEAD")
+	if err := symCmd.Run(); err == nil {
+		t.Fatal("expected detached HEAD after cloning a hex-named tag")
+	}
+
+	// Cloned via -b with --depth → shallow. The SHA fallback would do a full
+	// clone (no .git/shallow), so its presence proves the tag path was taken.
+	if _, err := os.Stat(filepath.Join(dst, ".git", "shallow")); err != nil {
+		t.Fatalf("expected shallow clone (.git/shallow) for hex-named tag with Depth=1: %v", err)
+	}
+}
+
+func TestCloner_CloneWithTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping git CLI test in short mode")
+	}
+
+	bare := initBareRepo(t)
+
+	// Tag the bare repo's HEAD via a temporary working copy.
+	work := cloneLocal(t, bare)
+	runGit(t, work, "tag", "v1.0.0")
+	runGit(t, work, "push", "origin", "v1.0.0")
+
+	dst := filepath.Join(t.TempDir(), "cloned-tag")
+	cloner := gitcli.NewCloner()
+	err := cloner.Clone(context.Background(), git.CloneOptions{
+		URL:    bare,
+		Dir:    dst,
+		Branch: "v1.0.0",
+	})
+	if err != nil {
+		t.Fatalf("Clone with tag returned error: %v", err)
+	}
+
+	// README from the initial (tagged) commit must exist.
+	if _, err := os.Stat(filepath.Join(dst, "README")); err != nil {
+		t.Fatalf("expected README in cloned repo: %v", err)
+	}
+
+	// HEAD should be detached when cloning a tag.
+	symCmd := exec.CommandContext(context.Background(), "git", "-C", dst, "symbolic-ref", "-q", "HEAD")
+	if err := symCmd.Run(); err == nil {
+		t.Fatal("expected detached HEAD after cloning a tag")
+	}
+}
+
+func TestCloner_CloneWithCommitSHA(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping git CLI test in short mode")
+	}
+
+	bare := initBareRepo(t)
+
+	// Capture the commit SHA of the bare repo's HEAD.
+	work := cloneLocal(t, bare)
+	revOut, err := exec.CommandContext(context.Background(),
+		"git", "-C", work, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD failed: %v", err)
+	}
+	sha := strings.TrimSpace(string(revOut))
+
+	dst := filepath.Join(t.TempDir(), "cloned-sha")
+	cloner := gitcli.NewCloner()
+	err = cloner.Clone(context.Background(), git.CloneOptions{
+		URL:    bare,
+		Dir:    dst,
+		Branch: sha,
+	})
+	if err != nil {
+		t.Fatalf("Clone with commit SHA returned error: %v", err)
+	}
+
+	// HEAD must match the requested SHA exactly.
+	headOut, err := exec.CommandContext(context.Background(),
+		"git", "-C", dst, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("rev-parse HEAD on cloned repo failed: %v", err)
+	}
+	if got := strings.TrimSpace(string(headOut)); got != sha {
+		t.Fatalf("HEAD = %s, want %s", got, sha)
+	}
+}
+
 func TestCloner_CloneInvalidURL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping git CLI test in short mode")
