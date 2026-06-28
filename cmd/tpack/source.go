@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tmuxpack/tpack/internal/config"
+	"github.com/tmuxpack/tpack/internal/state"
 	"github.com/tmuxpack/tpack/internal/tmux"
 	"github.com/tmuxpack/tpack/internal/ui"
 )
@@ -29,7 +30,13 @@ var sourceCmd = &cobra.Command{
 
 		plugins := config.GatherPlugins(runner, config.RealFS{}, cfg.TmuxConf, cfg.Home, xdgConfigHome(cfg.Home))
 
-		mgr.Source(context.Background(), plugins)
+		failures := mgr.Source(context.Background(), plugins)
+		for _, f := range failures {
+			output.Err("error loading " + f.Name + ": " + f.Message)
+		}
+		if err := state.SaveLoadErrors(cfg.StatePath, failures); err != nil {
+			fmt.Fprintf(os.Stderr, "tpack: warning: failed to save load errors: %v\n", err)
+		}
 		return nil
 	},
 }
