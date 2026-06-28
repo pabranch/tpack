@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/tmuxpack/tpack/internal/git"
 )
 
@@ -929,6 +930,83 @@ func TestViewCommits_Rendering(t *testing.T) {
 	}
 	if !strings.Contains(view, "back") {
 		t.Error("expected view to contain 'back' in help")
+	}
+}
+
+func TestUpdateList_EnterOpensLoadError(t *testing.T) {
+	m := newTestModel(t, nil)
+	m.plugins = []PluginItem{
+		{Name: "tmux-statusline", Status: StatusLoadFailed, LoadErr: "line one\nline two"},
+	}
+	m.viewHeight = 10
+
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
+	result, _ := m.Update(msg)
+	m = result.(Model)
+
+	if m.screen != ScreenLoadError {
+		t.Fatalf("expected ScreenLoadError, got %d", m.screen)
+	}
+	if m.loadErrName != "tmux-statusline" {
+		t.Errorf("expected loadErrName set, got %q", m.loadErrName)
+	}
+	if len(m.loadErrLines) != 2 {
+		t.Errorf("expected 2 message lines, got %d", len(m.loadErrLines))
+	}
+}
+
+func TestUpdateList_EnterNoopOnHealthyPlugin(t *testing.T) {
+	m := newTestModel(t, nil)
+	m.plugins = []PluginItem{{Name: "ok", Status: StatusInstalled}}
+	m.viewHeight = 10
+
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
+	result, _ := m.Update(msg)
+	m = result.(Model)
+
+	if m.screen != ScreenList {
+		t.Errorf("expected to stay on ScreenList, got %d", m.screen)
+	}
+}
+
+func TestLoadErrorWrappedLines_WrapsLongPath(t *testing.T) {
+	m := newTestModel(t, nil)
+	m.width = 40
+	m.loadErrLines = []string{
+		"error sourcing tmux-statusline.tmux: fork/exec /home/antoinegs/.tmux/plugins/tmux-statusline/tmux-statusline.tmux: exec format error",
+	}
+
+	lines := m.loadErrorWrappedLines()
+
+	if len(lines) < 2 {
+		t.Fatalf("expected long message to wrap into multiple lines, got %d", len(lines))
+	}
+	contentWidth := m.width - BaseStylePadding
+	for i, l := range lines {
+		if w := lipgloss.Width(l); w > contentWidth {
+			t.Errorf("line %d width %d exceeds content width %d: %q", i, w, contentWidth, l)
+		}
+	}
+}
+
+func TestUpdateLoadError_EscReturnsToList(t *testing.T) {
+	m := newTestModel(t, nil)
+	m.screen = ScreenLoadError
+	m.loadErrName = "x"
+	m.loadErrLines = []string{"boom"}
+
+	msg := tea.KeyPressMsg{Code: tea.KeyEscape}
+	result, _ := m.Update(msg)
+	m = result.(Model)
+
+	if m.screen != ScreenList {
+		t.Errorf("expected ScreenList after esc, got %d", m.screen)
+	}
+	if m.loadErrName != "" {
+		t.Errorf("expected loadErrName cleared, got %q", m.loadErrName)
+	}
+	if len(m.loadErrLines) != 0 {
+		t.Errorf("expected loadErrLines cleared, got %v", m.loadErrLines)
 	}
 }
 

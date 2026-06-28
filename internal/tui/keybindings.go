@@ -37,6 +37,12 @@ var SharedKeys = sharedKeys{
 	),
 }
 
+// ViewErrorKey opens the load-error detail screen for the selected plugin.
+var ViewErrorKey = key.NewBinding(
+	key.WithKeys("enter"),
+	key.WithHelp("↵", "view error"),
+)
+
 type browseKeys struct {
 	Apply    key.Binding
 	Cancel   key.Binding

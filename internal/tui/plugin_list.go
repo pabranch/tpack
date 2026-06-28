@@ -105,6 +105,9 @@ func (m *Model) viewList() string {
 		bindings = append(bindings, ListKeys.Clean)
 	}
 	bindings = append(bindings, ListKeys.Browse)
+	if m.hasLoadFailed() {
+		bindings = append(bindings, ViewErrorKey)
+	}
 	bindings = append(bindings, SharedKeys.Quit)
 	help := m.centerText(m.theme.renderHelp(m.width, bindings...))
 
@@ -177,6 +180,16 @@ func (m *Model) statusSummary() string {
 		s += fmt.Sprintf(", %d failed to load", failed)
 	}
 	return s
+}
+
+// hasLoadFailed reports whether any plugin failed to load.
+func (m *Model) hasLoadFailed() bool {
+	for _, p := range m.plugins {
+		if p.Status == StatusLoadFailed {
+			return true
+		}
+	}
+	return false
 }
 
 // renderStatus returns the styled status text for a plugin.

@@ -93,6 +93,11 @@ type Model struct {
 	commitViewCommits []git.Commit
 	commitScroll      scrollState
 
+	// Load-error detail screen state.
+	loadErrName   string
+	loadErrLines  []string
+	loadErrScroll scrollState
+
 	// Browse screen state.
 	browseRegistry      *registry.Registry
 	browseResults       []registry.RegistryItem
@@ -241,7 +246,9 @@ func (m Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsgDebug(msg)
 	case ScreenBrowse:
 		return m.handleKeyMsgBrowse(msg)
-	case ScreenList, ScreenLoadError:
+	case ScreenLoadError:
+		return m.handleKeyMsgLoadError(msg)
+	case ScreenList:
 		return m.handleKeyMsgList(msg)
 	}
 	return m.handleKeyMsgList(msg)
@@ -251,8 +258,10 @@ func (m Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	var content string
 	switch m.screen {
-	case ScreenList, ScreenLoadError:
+	case ScreenList:
 		content = m.viewList()
+	case ScreenLoadError:
+		content = m.viewLoadError()
 	case ScreenProgress:
 		content = m.viewProgress()
 	case ScreenCommits:
@@ -283,8 +292,10 @@ func (m *Model) windowTitle() string {
 		return "tpack — Browse"
 	case ScreenCommits:
 		return "tpack — Commits"
-	case ScreenList, ScreenDebug, ScreenLoadError:
+	case ScreenList, ScreenDebug:
 		return "tpack"
+	case ScreenLoadError:
+		return "tpack — Loading error"
 	}
 	return "tpack"
 }
@@ -325,6 +336,8 @@ func (m Model) handleKeyMsgList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.enterBrowse()
 	case key.Matches(msg, ListKeys.Debug):
 		m.screen = ScreenDebug
+	case key.Matches(msg, ViewErrorKey):
+		m.openLoadError()
 	}
 	return m, nil
 }
