@@ -2,9 +2,9 @@ package manager
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,47 +14,72 @@ import (
 	"github.com/tmuxpack/tpack/internal/plug"
 )
 
-// Source executes all *.tmux files from each plugin directory.
-func (m *Manager) Source(ctx context.Context, plugins []plug.Plugin) {
+// Source executes every plugin's *.tmux files and returns one LoadFailure per
+// failing plugin (messages aggregated across that plugin's files).
+func (m *Manager) Source(ctx context.Context, plugins []plug.Plugin) []plug.LoadFailure {
+	var failures []plug.LoadFailure
 	for _, p := range plugins {
 		dir := plug.PluginPath(p.Name, m.pluginPath)
-		m.sourcePlugin(ctx, dir)
+		if msg := sourcePlugin(ctx, dir); msg != "" {
+			failures = append(failures, plug.LoadFailure{Name: p.Name, Message: msg})
+		}
 	}
+	return failures
 }
 
-func (m *Manager) sourcePlugin(ctx context.Context, dir string) {
+// sourcePlugin executes all *.tmux files in dir and returns an aggregated
+// error message describing any failures ("" when all succeed or dir is absent).
+func sourcePlugin(ctx context.Context, dir string) string {
 	info, err := os.Stat(dir)
 	if err != nil || !info.IsDir() {
-		return
+		return ""
 	}
 
 	matches, err := filepath.Glob(filepath.Join(dir, "*.tmux"))
 	if err != nil {
-		m.output.Err("glob error for " + dir + ": " + err.Error())
-		return
+		return "glob error for " + dir + ": " + err.Error()
 	}
 
+	var msgs []string
 	for _, file := range matches {
-		cmd := exec.CommandContext(ctx, file) //nolint:gosec // plugin files are user-configured
-		cmd.Stdout = io.Discard
-		cmd.Stderr = io.Discard
-		if err := cmd.Run(); err != nil {
-			// Retry with the interpreter from the shebang looked up via
-			// PATH if the absolute interpreter path was not found (e.g.
-			// Termux where /usr/bin/env does not exist).
-			if errors.Is(err, syscall.ENOENT) {
-				if interp := parseShebangInterpreter(file); interp != "" {
-					fallback := exec.CommandContext(ctx, interp, file) //nolint:gosec // plugin files are user-configured
-					fallback.Stdout = io.Discard
-					fallback.Stderr = io.Discard
-					err = fallback.Run()
-				}
-			}
-			if err != nil {
-				m.output.Err("error sourcing " + filepath.Base(file) + ": " + err.Error())
+		out, err := runTmuxFile(ctx, file)
+		// Retry via the shebang interpreter looked up on PATH when the
+		// absolute interpreter path is missing (e.g. Termux has no /usr/bin/env).
+		if errors.Is(err, syscall.ENOENT) {
+			if interp := parseShebangInterpreter(file); interp != "" {
+				out, err = runTmuxFile(ctx, interp, file)
 			}
 		}
+		if err != nil {
+			msg := "error sourcing " + filepath.Base(file) + ": " + err.Error()
+			// Include the plugin's own output, not just the exit status.
+			if detail := strings.TrimSpace(out); detail != "" {
+				msg += "\n" + indentLines(detail)
+			}
+			msgs = append(msgs, msg)
+		}
 	}
+	return strings.Join(msgs, "\n")
+}
+
+// runTmuxFile executes a plugin entry script (optionally via an explicit
+// interpreter) and returns its combined stdout and stderr output.
+func runTmuxFile(ctx context.Context, name string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // plugin files are user-configured
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
+}
+
+// indentLines prefixes every line with two spaces.
+func indentLines(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = "  " + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 // parseShebangInterpreter reads the shebang line from a script and returns

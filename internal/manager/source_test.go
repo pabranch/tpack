@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tmuxpack/tpack/internal/git"
@@ -17,26 +18,43 @@ func TestSourceExecutesTmuxFiles(t *testing.T) {
 	pDir := filepath.Join(pluginDir, "tmux-test")
 	os.MkdirAll(pDir, 0o755)
 
-	// Create a *.tmux file that touches a marker file.
 	marker := filepath.Join(t.TempDir(), "sourced")
 	script := filepath.Join(pDir, "test.tmux")
 	os.WriteFile(script, []byte("#!/bin/sh\ntouch "+marker+"\n"), 0o755)
 
-	cloner := git.NewMockCloner()
-	puller := git.NewMockPuller()
-	validator := git.NewMockValidator()
-	output := ui.NewMockOutput()
-
-	mgr := manager.New(pluginDir, cloner, puller, validator, output)
-
-	plugins := []plug.Plugin{
-		{Name: "tmux-test"},
-	}
-
-	mgr.Source(context.Background(), plugins)
+	mgr := manager.New(pluginDir, git.NewMockCloner(), git.NewMockPuller(), git.NewMockValidator(), ui.NewMockOutput())
+	failures := mgr.Source(context.Background(), []plug.Plugin{{Name: "tmux-test"}})
 
 	if _, err := os.Stat(marker); err != nil {
 		t.Error("expected *.tmux file to be executed")
+	}
+	if len(failures) != 0 {
+		t.Errorf("expected no failures, got %v", failures)
+	}
+}
+
+func TestSourceReportsPluginErrorOutput(t *testing.T) {
+	pluginDir := setupTestDir(t)
+	pDir := filepath.Join(pluginDir, "tmux-test")
+	os.MkdirAll(pDir, 0o755)
+
+	script := filepath.Join(pDir, "test.tmux")
+	os.WriteFile(script, []byte("#!/bin/sh\necho 'boom: missing dependency' >&2\nexit 1\n"), 0o755)
+
+	mgr := manager.New(pluginDir, git.NewMockCloner(), git.NewMockPuller(), git.NewMockValidator(), ui.NewMockOutput())
+	failures := mgr.Source(context.Background(), []plug.Plugin{{Name: "tmux-test"}})
+
+	if len(failures) != 1 {
+		t.Fatalf("expected 1 failure, got %d: %v", len(failures), failures)
+	}
+	if failures[0].Name != "tmux-test" {
+		t.Errorf("expected failure name 'tmux-test', got %q", failures[0].Name)
+	}
+	if !strings.Contains(failures[0].Message, "test.tmux") {
+		t.Errorf("expected message to name the file, got %q", failures[0].Message)
+	}
+	if !strings.Contains(failures[0].Message, "boom: missing dependency") {
+		t.Errorf("expected plugin stderr in message, got %q", failures[0].Message)
 	}
 }
 
@@ -55,26 +73,18 @@ func TestSourceFallsBackToShebangInterpreter(t *testing.T) {
 			pDir := filepath.Join(pluginDir, "tmux-test")
 			os.MkdirAll(pDir, 0o755)
 
-			// Script with a broken shebang (simulates Termux where
-			// /usr/bin/env does not exist). The fallback should parse the
-			// shebang interpreter and find it via PATH.
 			marker := filepath.Join(t.TempDir(), "sourced")
 			script := filepath.Join(pDir, "test.tmux")
 			os.WriteFile(script, []byte(tc.shebang+"\ntouch "+marker+"\n"), 0o755)
 
-			cloner := git.NewMockCloner()
-			puller := git.NewMockPuller()
-			validator := git.NewMockValidator()
-			output := ui.NewMockOutput()
-
-			mgr := manager.New(pluginDir, cloner, puller, validator, output)
-			mgr.Source(context.Background(), []plug.Plugin{{Name: "tmux-test"}})
+			mgr := manager.New(pluginDir, git.NewMockCloner(), git.NewMockPuller(), git.NewMockValidator(), ui.NewMockOutput())
+			failures := mgr.Source(context.Background(), []plug.Plugin{{Name: "tmux-test"}})
 
 			if _, err := os.Stat(marker); err != nil {
 				t.Error("expected shebang fallback to execute script")
 			}
-			if output.HasFailed() {
-				t.Errorf("expected no errors, got: %v", output.ErrMsgs)
+			if len(failures) != 0 {
+				t.Errorf("expected no failures, got %v", failures)
 			}
 		})
 	}
@@ -82,18 +92,10 @@ func TestSourceFallsBackToShebangInterpreter(t *testing.T) {
 
 func TestSourceSkipsNonExistentDir(t *testing.T) {
 	pluginDir := setupTestDir(t)
+	mgr := manager.New(pluginDir, git.NewMockCloner(), git.NewMockPuller(), git.NewMockValidator(), ui.NewMockOutput())
 
-	cloner := git.NewMockCloner()
-	puller := git.NewMockPuller()
-	validator := git.NewMockValidator()
-	output := ui.NewMockOutput()
-
-	mgr := manager.New(pluginDir, cloner, puller, validator, output)
-
-	plugins := []plug.Plugin{
-		{Name: "nonexistent"},
+	failures := mgr.Source(context.Background(), []plug.Plugin{{Name: "nonexistent"}})
+	if len(failures) != 0 {
+		t.Errorf("expected no failures for missing dir, got %v", failures)
 	}
-
-	// Should not panic.
-	mgr.Source(context.Background(), plugins)
 }
