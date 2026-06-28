@@ -30,6 +30,7 @@ func TestPluginStatusIsInstalled(t *testing.T) {
 		{StatusChecking, true},
 		{StatusOutdated, true},
 		{StatusCheckFailed, true},
+		{StatusLoadFailed, true},
 		{StatusNotInstalled, false},
 	}
 	for _, tt := range tests {
@@ -49,6 +50,7 @@ func TestPluginStatusString(t *testing.T) {
 		{StatusChecking, "Checking"},
 		{StatusOutdated, "Outdated"},
 		{StatusCheckFailed, "Check Failed"},
+		{StatusLoadFailed, "Loading Failed"},
 		{PluginStatus(99), "Unknown"},
 	}
 	for _, tt := range tests {

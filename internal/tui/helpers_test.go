@@ -17,7 +17,7 @@ func TestBuildPluginItems_AllNotInstalled(t *testing.T) {
 		{Name: "tmux-yank", Spec: "tmux-plugins/tmux-yank"},
 	}
 
-	items := buildPluginItems(plugins, pluginPath, validator)
+	items := buildPluginItems(plugins, pluginPath, validator, nil)
 
 	if len(items) != 2 {
 		t.Fatalf("expected 2 items, got %d", len(items))
@@ -45,7 +45,7 @@ func TestBuildPluginItems_Installed(t *testing.T) {
 		{Name: "tmux-sensible", Spec: "tmux-plugins/tmux-sensible"},
 	}
 
-	items := buildPluginItems(plugins, pluginPath, validator)
+	items := buildPluginItems(plugins, pluginPath, validator, nil)
 
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
@@ -62,7 +62,7 @@ func TestBuildPluginItems_PreservesFields(t *testing.T) {
 		{Name: "tmux-yank", Spec: "tmux-plugins/tmux-yank", Branch: "main"},
 	}
 
-	items := buildPluginItems(plugins, pluginPath, validator)
+	items := buildPluginItems(plugins, pluginPath, validator, nil)
 
 	if items[0].Name != "tmux-yank" {
 		t.Errorf("expected name tmux-yank, got %s", items[0].Name)
@@ -135,5 +135,54 @@ func TestFindOrphans_EmptyDir(t *testing.T) {
 	orphans := findOrphans(plugins, pluginPath)
 	if len(orphans) != 0 {
 		t.Errorf("expected 0 orphans for empty dir, got %d", len(orphans))
+	}
+}
+
+func TestBuildPluginItems_LoadFailed(t *testing.T) {
+	pluginPath := t.TempDir() + "/"
+	validator := git.NewMockValidator()
+
+	dir := filepath.Join(pluginPath, "tmux-statusline")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	validator.Valid[dir] = true
+
+	plugins := []plug.Plugin{{Name: "tmux-statusline", Spec: "x/tmux-statusline"}}
+	loadErrors := map[string]string{"tmux-statusline": "exec format error"}
+
+	items := buildPluginItems(plugins, pluginPath, validator, loadErrors)
+
+	if items[0].Status != StatusLoadFailed {
+		t.Errorf("expected StatusLoadFailed, got %s", items[0].Status)
+	}
+	if items[0].LoadErr != "exec format error" {
+		t.Errorf("expected LoadErr set, got %q", items[0].LoadErr)
+	}
+}
+
+func TestBuildPluginItems_LoadErrorIgnoredWhenNotInstalled(t *testing.T) {
+	pluginPath := t.TempDir() + "/"
+	validator := git.NewMockValidator()
+
+	plugins := []plug.Plugin{{Name: "ghost", Spec: "x/ghost"}}
+	loadErrors := map[string]string{"ghost": "stale error"}
+
+	items := buildPluginItems(plugins, pluginPath, validator, loadErrors)
+
+	if items[0].Status != StatusNotInstalled {
+		t.Errorf("expected StatusNotInstalled for uninstalled plugin, got %s", items[0].Status)
+	}
+	if items[0].LoadErr != "" {
+		t.Errorf("expected no LoadErr for uninstalled plugin, got %q", items[0].LoadErr)
+	}
+}
+
+func TestLoadFailedStatusStrings(t *testing.T) {
+	if StatusLoadFailed.String() != "Loading Failed" {
+		t.Errorf("expected 'Loading Failed', got %q", StatusLoadFailed.String())
+	}
+	if !StatusLoadFailed.IsInstalled() {
+		t.Error("expected StatusLoadFailed to count as installed")
 	}
 }

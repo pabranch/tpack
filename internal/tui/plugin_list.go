@@ -155,10 +155,14 @@ func (m *Model) statusSummary() string {
 	installed := 0
 	notInstalled := 0
 	outdated := 0
+	failed := 0
 	for _, p := range m.plugins {
 		switch p.Status {
 		case StatusInstalled, StatusChecking, StatusCheckFailed:
 			installed++
+		case StatusLoadFailed:
+			installed++
+			failed++
 		case StatusNotInstalled:
 			notInstalled++
 		case StatusOutdated:
@@ -168,6 +172,9 @@ func (m *Model) statusSummary() string {
 	s := fmt.Sprintf("%d installed, %d not installed", installed, notInstalled)
 	if outdated > 0 {
 		s += fmt.Sprintf(", %d outdated", outdated)
+	}
+	if failed > 0 {
+		s += fmt.Sprintf(", %d failed to load", failed)
 	}
 	return s
 }
@@ -185,6 +192,8 @@ func (m *Model) renderStatus(s PluginStatus) string {
 		return m.theme.StatusOutdatedStyle.Render("Outdated")
 	case StatusCheckFailed:
 		return m.theme.StatusInstalledStyle.Render("Installed") + " " + m.theme.StatusCheckFailedStyle.Render("⚠")
+	case StatusLoadFailed:
+		return m.theme.StatusCheckFailedStyle.Render("Loading Failed")
 	default:
 		return ""
 	}

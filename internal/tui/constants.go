@@ -15,6 +15,7 @@ const (
 	ScreenCommits
 	ScreenDebug
 	ScreenBrowse
+	ScreenLoadError
 )
 
 // Operation represents the current plugin operation.
@@ -57,12 +58,13 @@ const (
 	StatusChecking
 	StatusOutdated
 	StatusCheckFailed
+	StatusLoadFailed
 )
 
 // IsInstalled returns true for any status that means the plugin is on disk.
 func (s PluginStatus) IsInstalled() bool {
 	switch s {
-	case StatusInstalled, StatusChecking, StatusOutdated, StatusCheckFailed:
+	case StatusInstalled, StatusChecking, StatusOutdated, StatusCheckFailed, StatusLoadFailed:
 		return true
 	case StatusNotInstalled:
 		return false
@@ -82,6 +84,8 @@ func (s PluginStatus) String() string {
 		return "Outdated"
 	case StatusCheckFailed:
 		return "Check Failed"
+	case StatusLoadFailed:
+		return "Loading Failed"
 	default:
 		return "Unknown"
 	}
@@ -89,10 +93,11 @@ func (s PluginStatus) String() string {
 
 // PluginItem is an enriched plugin with install status.
 type PluginItem struct {
-	Name   string
-	Spec   string
-	Branch string
-	Status PluginStatus
+	Name    string
+	Spec    string
+	Branch  string
+	Status  PluginStatus
+	LoadErr string
 }
 
 // OrphanItem represents a plugin directory not in config.

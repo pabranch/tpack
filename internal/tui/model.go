@@ -12,6 +12,7 @@ import (
 	"github.com/tmuxpack/tpack/internal/git"
 	"github.com/tmuxpack/tpack/internal/plug"
 	"github.com/tmuxpack/tpack/internal/registry"
+	"github.com/tmuxpack/tpack/internal/state"
 	"github.com/tmuxpack/tpack/internal/tmux"
 )
 
@@ -112,7 +113,7 @@ type Model struct {
 
 // NewModel creates a new Model from the resolved config and gathered plugins.
 func NewModel(cfg *config.Config, plugins []plug.Plugin, deps Deps, opts ...ModelOption) Model {
-	items := buildPluginItems(plugins, cfg.PluginPath, deps.Validator)
+	items := buildPluginItems(plugins, cfg.PluginPath, deps.Validator, loadErrorMap(state.LoadLoadErrors(cfg.StatePath)))
 	orphans := findOrphans(plugins, cfg.PluginPath)
 
 	s := spinner.New()
@@ -240,7 +241,7 @@ func (m Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsgDebug(msg)
 	case ScreenBrowse:
 		return m.handleKeyMsgBrowse(msg)
-	case ScreenList:
+	case ScreenList, ScreenLoadError:
 		return m.handleKeyMsgList(msg)
 	}
 	return m.handleKeyMsgList(msg)
@@ -250,7 +251,7 @@ func (m Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	var content string
 	switch m.screen {
-	case ScreenList:
+	case ScreenList, ScreenLoadError:
 		content = m.viewList()
 	case ScreenProgress:
 		content = m.viewProgress()
@@ -282,7 +283,7 @@ func (m *Model) windowTitle() string {
 		return "tpack — Browse"
 	case ScreenCommits:
 		return "tpack — Commits"
-	case ScreenList, ScreenDebug:
+	case ScreenList, ScreenDebug, ScreenLoadError:
 		return "tpack"
 	}
 	return "tpack"
