@@ -50,6 +50,12 @@ func sourcePlugin(ctx context.Context, dir string) string {
 				out, err = runTmuxFile(ctx, interp, file)
 			}
 		}
+		// Retry through a shell if the file has no shebang and is not a
+		// binary (ENOEXEC). TPM sources *.tmux files via run-shell, so
+		// shebang-less plugin scripts work there; match that behavior.
+		if errors.Is(err, syscall.ENOEXEC) {
+			out, err = runTmuxFile(ctx, "sh", file)
+		}
 		if err != nil {
 			msg := "error sourcing " + filepath.Base(file) + ": " + err.Error()
 			// Include the plugin's own output, not just the exit status.
