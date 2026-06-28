@@ -206,7 +206,7 @@ func (m *Model) renderStatus(s PluginStatus) string {
 	case StatusCheckFailed:
 		return m.theme.StatusInstalledStyle.Render("Installed") + " " + m.theme.StatusCheckFailedStyle.Render("⚠")
 	case StatusLoadFailed:
-		return m.theme.StatusCheckFailedStyle.Render("Loading Failed")
+		return m.theme.StatusCheckFailedStyle.Render(loadingFailedLabel)
 	default:
 		return ""
 	}

@@ -85,7 +85,7 @@ func (s PluginStatus) String() string {
 	case StatusCheckFailed:
 		return "Check Failed"
 	case StatusLoadFailed:
-		return "Loading Failed"
+		return loadingFailedLabel
 	default:
 		return "Unknown"
 	}
@@ -125,6 +125,9 @@ type pendingOp struct {
 	Branch string
 	Path   string
 }
+
+// loadingFailedLabel is the display label for a plugin that failed to load.
+const loadingFailedLabel = "Loading Failed"
 
 // escKeyName is the string representation of the Escape key.
 const escKeyName = "esc"
