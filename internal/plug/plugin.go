@@ -16,3 +16,10 @@ type Plugin struct {
 	// When set, Name is derived from Alias instead of the spec.
 	Alias string
 }
+
+// LoadFailure records a plugin whose *.tmux failed to execute, with the
+// captured error message.
+type LoadFailure struct {
+	Name    string `yaml:"name"`
+	Message string `yaml:"message"`
+}
