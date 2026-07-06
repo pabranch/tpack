@@ -10,3 +10,22 @@ coverage.out
 
 # MkDocs build output
 site/
+
+# Editor swap / backup files
+*.swp
+*.swo
+.*.swp
+.*.swo
+*~
+*.bak
+*.orig
+*.rej
+
+# Editor / IDE directories
+.idea/
+.vscode/
+*.iml
+
+# OS junk
+.DS_Store
+Thumbs.db

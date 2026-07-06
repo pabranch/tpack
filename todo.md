@@ -1,3 +1,11 @@
 - Config file for settings like:
   - headless mode (no TUI, just run in the background and update)
 - How to handle locally downloaded/installed binary for updates
+- Fix `internal/git/cli` tests broken under git 2.43+ (pre-existing CI failure):
+  - `TestCloner_CloneWithCommitSHA`
+  - `TestPuller_PullWithBranch`
+  - `TestPuller_PullSkippedOnTag`
+  - `TestPuller_PullSkippedOnCommitSHA`
+  - Cause: git 2.43 auto-injects `--end-of-options` between the ref and pathspec, so `git checkout <ref>` returns:
+    `error: pathspec '--end-of-options' did not match any file(s) known to git`
+  - Fix sketch: pass `--` before the ref (e.g. `git checkout <ref> --`) or update the test assertions to accept the new error path. Only blocks the unit test target — does not affect the built binary's runtime behavior.
