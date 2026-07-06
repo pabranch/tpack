@@ -27,6 +27,20 @@ func GatherPlugins(runner tmux.Runner, fs FS, tmuxConf, home, xdgConfigHome stri
 	content := configContent(fs, tmuxConf, home, xdgConfigHome)
 	specs = append(specs, plug.ExtractPluginsFromConfig(content)...)
 
+	// Deduplicate specs, preserving first-occurrence order. The same plugin may
+	// appear in both legacy and new syntax, or be declared multiple times across
+	// /etc/tmux.conf, user tmux.conf, and sourced files.
+	seen := make(map[string]struct{}, len(specs))
+	unique := specs[:0]
+	for _, s := range specs {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		unique = append(unique, s)
+	}
+	specs = unique
+
 	// Parse all specs into Plugin structs.
 	var plugins []plug.Plugin
 	for _, raw := range specs {
