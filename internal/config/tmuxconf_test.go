@@ -108,3 +108,47 @@ func TestGatherPluginsWithBranch(t *testing.T) {
 		t.Errorf("Branch = %q, want %q", plugins[0].Branch, "develop")
 	}
 }
+
+func TestGatherPluginsDeduplicatesLegacyAndNew(t *testing.T) {
+	m := tmux.NewMockRunner()
+	m.Options["@tpm_plugins"] = "tmux-plugins/tpm tmux-plugins/tmux-sensible"
+	fs := config.NewMockFS()
+	fs.Files["/home/user/.tmux.conf"] = `set -g @plugin "tmux-plugins/tpm"
+set -g @plugin "tmux-plugins/tmux-sensible"
+set -g @plugin "tmux-plugins/tmux-yank"`
+
+	plugins := config.GatherPlugins(m, fs, "/home/user/.tmux.conf", "/home/user", "")
+	if len(plugins) != 3 {
+		t.Fatalf("expected 3 plugins, got %d", len(plugins))
+	}
+	want := []string{"tpm", "tmux-sensible", "tmux-yank"}
+	for i, name := range want {
+		if plugins[i].Name != name {
+			t.Errorf("plugin[%d].Name = %q, want %q", i, plugins[i].Name, name)
+		}
+	}
+}
+
+func TestGatherPluginsDeduplicatesAcrossSources(t *testing.T) {
+	m := tmux.NewMockRunner()
+	fs := config.NewMockFS()
+	fs.Files["/etc/tmux.conf"] = `set -g @plugin "tmux-plugins/tpm"`
+	fs.Files["/home/user/.tmux.conf"] = `source ~/.tmux/plugins.conf
+set -g @plugin "tmux-plugins/tpm"
+set -g @plugin "tmux-plugins/tmux-sensible"`
+	fs.Files["/home/user/.tmux/plugins.conf"] = `set -g @plugin "tmux-plugins/tpm"
+set -g @plugin "tmux-plugins/tmux-yank"`
+
+	plugins := config.GatherPlugins(m, fs, "/home/user/.tmux.conf", "/home/user", "")
+	if len(plugins) != 3 {
+		t.Fatalf("expected 3 plugins, got %d: %v", len(plugins), plugins)
+	}
+	// First-occurrence order is preserved: /etc/tmux.conf's "tpm" wins,
+	// followed by the first occurrence of tmux-sensible and tmux-yank.
+	want := []string{"tpm", "tmux-sensible", "tmux-yank"}
+	for i, name := range want {
+		if plugins[i].Name != name {
+			t.Errorf("plugin[%d].Name = %q, want %q", i, plugins[i].Name, name)
+		}
+	}
+}
