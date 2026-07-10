@@ -98,20 +98,7 @@ grep -rEn '@tpm[-_]|@tpack' --include='*.go' --include='*.md' \
 
 ## Mise / toolchain setup
 
-`mise.toml` pins `go`, `golangci-lint@2.12.2`, `goreleaser@2.17.0`. After
-a fresh clone, **run `mise use` once before `make`** to install the pinned
-tools into the active shell.
-
-### Why bootstrap order matters
-
-The upstream Makefile's `lint` target still calls
-`go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`,
-which targets the v1 import path while `.golangci.yml` requires v2.
-Without `mise install` first, `make lint` would install an incompatible
-v1 binary and refuse to load the config. With mise already installed,
-the v2 binary on `$PATH` wins and the broken bootstrap is bypassed.
-Touching the in-tree Makefile to fix this is intentionally deferred to
-keep the diff against upstream minimal.
+`mise.toml` pins `go`, `golangci-lint@2.12.2`, `goreleaser@2.17.0`. See `AGENTS.md` for bootstrap instructions.
 
 ## Known test breakage (also in `todo.md`)
 
