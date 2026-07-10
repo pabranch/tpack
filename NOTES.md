@@ -84,17 +84,22 @@ grep -rEn '@tpm[-_]|@tpack' --include='*.go' --include='*.md' \
 
 ---
 
-## Build & install pipeline notes
+## Local Race Testing with Docker
 
-- `make build` produces `dist/tpack`. `lib/find_binary.sh` searches
-  `$root_dir/dist/tpack` first, then `$root_dir/tpack`, then `$PATH`,
-  then auto-downloads from GitHub Releases.
-- For the dev workflow (build → smoke test in tmux), copy `dist/tpack` to
-  the project root: `cp dist/tpack ./tpack`. Confirmed working with the
-  dedup fix.
-- The project's own `.gitignore` ignores the root `tpack` binary, so this
-  copy is a local-only smoke-test artifact, not something to commit. The
-  release binary is produced by GoReleaser per tag.
+To run tests with the race detector in a containerized environment (useful if `gcc` is missing locally), use the following commands. If you don't have `docker` on your `$PATH`, you can use `mise` to run it:
+
+```bash
+# Build the development image
+mise x docker-cli -- docker build -t tpack-dev -f Dockerfile.dev .
+
+# Run unit tests with the race detector
+mise x docker-cli -- docker run --rm -v "$(pwd)":/app tpack-dev
+
+# Run all tests (unit, integration, e2e)
+mise x docker-cli -- docker run --rm -v "$(pwd)":/app tpack-dev make test-all
+```
+
+Note: The `mise x docker-cli --` prefix ensures the Docker CLI is available regardless of your global environment. If `docker` is already in your path, you can omit the prefix.
 
 ## Mise / toolchain setup
 

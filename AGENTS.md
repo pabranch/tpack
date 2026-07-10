@@ -98,6 +98,13 @@ Consider whether a legacy `@tpm-*` equivalent option should also be supported fo
 ### Race Detector
 Enabled by default in all `make test-*` targets. Requires `CGO_ENABLED=1` and a working C compiler (e.g., `gcc`).
 
+### Local Race Testing Without gcc
+Use `Dockerfile.dev`:
+```bash
+docker build -t tpack-dev -f Dockerfile.dev .
+docker run --rm -v "$(pwd)":/app tpack-dev make test-all
+```
+
 ### Manual Testing Without Race Detector
 Run tests directly with `go test` and without the `-race` flag.
 

@@ -1,0 +1,23 @@
+ARG GO_VERSION=1.26
+FROM golang:${GO_VERSION}
+
+# Install dependencies needed for integration tests and race detector
+RUN apt-get update && apt-get install -y \
+    tmux \
+    git \
+    make \
+    gcc \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy go.mod and go.sum and download dependencies to include them in the image
+COPY go.mod go.sum ./
+RUN go mod download
+
+# The race detector requires CGO_ENABLED=1
+ENV CGO_ENABLED=1
+
+# Default command runs unit tests with the race detector
+CMD ["make", "test-unit"]
