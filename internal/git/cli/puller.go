@@ -25,9 +25,15 @@ func (c *Puller) Pull(ctx context.Context, opts git.PullOptions) (string, error)
 		fetchCmd.Env = append(fetchCmd.Environ(), "GIT_TERMINAL_PROMPT=0")
 		_ = fetchCmd.Run()
 
-		// --end-of-options ensures a ref starting with "-" is treated as a
-		// ref, not as a git option (the ref comes from untrusted config).
-		checkoutCmd := exec.CommandContext(ctx, "git", "checkout", "--end-of-options", opts.Branch)
+		// Validate ref doesn't start with "-" to prevent it being parsed as
+		// a git option (refs come from untrusted config). Then pass
+		// `<ref> --` to ensure the ref is not treated as a pathspec,
+		// while maintaining compatibility with Git 2.43+ where
+		// `--end-of-options` caused failures.
+		if strings.HasPrefix(opts.Branch, "-") {
+			return "", fmt.Errorf("git checkout %s: invalid ref", opts.Branch)
+		}
+		checkoutCmd := exec.CommandContext(ctx, "git", "checkout", opts.Branch, "--")
 		checkoutCmd.Dir = opts.Dir
 		checkoutCmd.Env = append(checkoutCmd.Environ(), "GIT_TERMINAL_PROMPT=0")
 		if err := checkoutCmd.Run(); err != nil {
